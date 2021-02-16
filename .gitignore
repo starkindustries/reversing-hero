@@ -3,3 +3,7 @@
 *.lock
 *.lock~
 *.rep
+
+# C Files
+*.out
+*.o
