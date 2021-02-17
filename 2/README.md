@@ -50,125 +50,6 @@ LAB_004005c8:
 }
 ```
 
-Attempt to recreate the `verify_input` function for further testing. Full source is here: [x2_source.c](x2_source.c). 
-
-The interesting functions are `scramble` and `hash_func`. `scramble` takes in the user input and shuffles it. `hash_func` provides the shuffle index.
-
-`scramble()`
-```c
-void scramble(char *user_input, char *buffer)
-{
-    ...
-    counter = 0;
-    do
-    {
-        result = hash_func(counter);
-        *(buffer + result) = *(user_input + counter);        
-        counter = counter + 1;
-    } while (counter != 0x20);
-}
-```
-
-`hash_func()`
-```c
-unsigned long hash_func(long counter)
-{
-    unsigned long temp1;
-    unsigned long temp2;
-
-    temp1 = (counter + 0x55U & 0x1f) >> 1;
-    if ((counter + 0x55U & 1) != 0)
-    {
-        temp1 = temp1 | 0x10;
-    }
-    temp2 = temp1 >> 1;
-    if ((temp1 & 1) != 0)
-    {
-        temp2 = temp2 | 0x10;
-    }
-    temp1 = temp2 >> 1;
-    if ((temp2 & 1) != 0)
-    {
-        temp1 = temp1 | 0x10;
-    }
-    return temp1 * 3 & 0x1f;
-}
-```
-
-Using just this `hash_func`, one can predetermine the shuffle order. 
-```c
-for (int i = 0; i < 0x20; i++)
-{
-    unsigned long temp;
-    temp = hash_func(i);
-    printf("%d: %lu\n", i, temp);
-}
-```
-
-The code above produces the following. On the left is the index and the right is the shuffled index.
-```
-{
-    0: 2,
-    1: 14,
-    2: 26,
-    3: 9,
-    4: 21,
-    5: 1,
-    6: 13,
-    7: 25,
-    8: 5,
-    9: 17,
-    10: 29,
-    11: 0,
-    12: 12,
-    13: 24,
-    14: 4,
-    15: 16,
-    16: 28,
-    17: 8,
-    18: 20,
-    19: 3,
-    20: 15,
-    21: 27,
-    22: 7,
-    23: 19,
-    24: 31,
-    25: 11,
-    26: 23,
-    27: 6,
-    28: 18,
-    29: 30,
-    30: 10,
-    31: 22
-}
-```
-
-Ultimately, the program is looking for a match to this string of numbers:
-```
-89349536319392163324855876422573
-```
-
-Shuffle these numbers according to the shuffle map found. Write a [python script](shuffle.py) to do this automatically:
-```python
-shuffle_map = {
-    0: 2,
-    1: 14,
-    2: 26,
- ...
-}
-
-number = "89349536319392163324855876422573"
-shuffled = [number[shuffle_index] for shuffle_index in shuffle_map.values()]
-print("".join(shuffled))
-```
-
-This prints out:
-```
-31415926535897932384626433832795
-```
-
-Plug this number in for the win.
-
 ## Try String "89349536319392163324855876422573" (Fail #1)
 Unlike level 1, the comparison string is not the answer:
 ```
@@ -250,3 +131,102 @@ $ ./p2
 Did not work.
 
 On taking a closer look at `target_func`, it is digesting and altering the user input in order to produce the output code. So it makes sense that incorrect input would produce an incorrect code. Therefore, this approach does not work.
+
+## The Scramble Function
+Attempt to recreate the `verify_input` function for further testing. Full source is here: [x2_source.c](x2_source.c). 
+
+The interesting functions are `scramble` and `hash_func`. `scramble` takes in the user input and shuffles it. `hash_func` provides the shuffle index.
+
+`scramble()`
+```c
+void scramble(char *user_input, char *buffer)
+{
+    ...
+    counter = 0;
+    do
+    {
+        result = hash_func(counter);
+        *(buffer + result) = *(user_input + counter);        
+        counter = counter + 1;
+    } while (counter != 0x20);
+}
+```
+
+`hash_func()`
+```c
+unsigned long hash_func(long counter)
+{
+    unsigned long temp1;
+    unsigned long temp2;
+
+    temp1 = (counter + 0x55U & 0x1f) >> 1;
+    if ((counter + 0x55U & 1) != 0)
+    {
+        temp1 = temp1 | 0x10;
+    }
+    temp2 = temp1 >> 1;
+    if ((temp1 & 1) != 0)
+    {
+        temp2 = temp2 | 0x10;
+    }
+    temp1 = temp2 >> 1;
+    if ((temp2 & 1) != 0)
+    {
+        temp1 = temp1 | 0x10;
+    }
+    return temp1 * 3 & 0x1f;
+}
+```
+
+Using just this `hash_func`, one can predetermine the shuffle order. 
+```c
+for (int i = 0; i < 0x20; i++)
+{
+    unsigned long temp;
+    temp = hash_func(i);
+    printf("%d: %lu\n", i, temp);
+}
+```
+
+The code above produces the following (truncated) output. On the left is the index and the right is the shuffled index.
+```
+{
+    0: 2,
+    1: 14,
+    2: 26,
+    ...
+    30: 10,
+    31: 22
+}
+```
+
+Ultimately, the program is looking for a match to this string of numbers:
+```
+89349536319392163324855876422573
+```
+
+Shuffle these numbers according to the shuffle map found. Write a [python script](shuffle.py) to do this automatically:
+```python
+shuffle_map = {
+    0: 2,
+    1: 14,
+    2: 26,
+ ...
+}
+
+number = "89349536319392163324855876422573"
+shuffled = [number[shuffle_index] for shuffle_index in shuffle_map.values()]
+print("".join(shuffled))
+```
+
+This prints out:
+```
+31415926535897932384626433832795
+```
+
+Plug this number in for the win:
+```
+$ ./x2
+? 31415926535897932384626433832795
+! + 8899660DBD0537F4B5148EECBB7481E6D6A6FF2C96FD97C0A62A52DA34497544
+```
