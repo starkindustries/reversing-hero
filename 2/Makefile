@@ -11,8 +11,10 @@ filename = x2_source
 ignore_warnings = -Wno-incompatible-pointer-types \
 	-Wno-format-security
 
+flags = -g # used for gdb
+
 build: $(filename).c
-	gcc $(filename).c $(ignore_warnings) -o $(filename).o
+	gcc $(flags) $(filename).c $(ignore_warnings) -o $(filename).o
 	# *********************
 	# Build Successful
 	# *********************

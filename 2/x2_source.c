@@ -30,15 +30,72 @@ char *read_user_input(char *buffer, long max_chars, FILE *file_pointer)
     return (char *)default_return_var;
 }
 
-int verify_input(char *user_input, void *global_const, char *buffer)
+unsigned long hash_func(long counter)
 {
-    // scramble(user_input, &buffer);
-    /* memcmp() compares first n bytes of memory areas s1 and s2 */
+    unsigned long temp1;
+    unsigned long temp2;
+
+    temp1 = (counter + 0x55U & 0x1f) >> 1;
+    if ((counter + 0x55U & 1) != 0)
+    {
+        temp1 = temp1 | 0x10;
+    }
+    temp2 = temp1 >> 1;
+    if ((temp1 & 1) != 0)
+    {
+        temp2 = temp2 | 0x10;
+    }
+    temp1 = temp2 >> 1;
+    if ((temp2 & 1) != 0)
+    {
+        temp1 = temp1 | 0x10;
+    }
+    return temp1 * 3 & 0x1f;
+}
+
+void scramble(char *user_input, char *buffer)
+{
+    long result;
+    long counter;
+
+    counter = 0;
+    do
+    {
+        printf("Scramble checkpoint 1!\n");
+        result = hash_func(counter);
+        printf("Scramble[%ld]: replacing {%p} with {%p}\n", counter, (buffer + result), (user_input + counter));
+        *(buffer + result) = *(user_input + counter);        
+        counter = counter + 1;
+        printf("Scramble checkpoint 2!\n");
+    } while (counter != 0x20);
+    printf("Scramble completed! **************");
+    return;
+}
+
+int verify_input(char *user_input, char *global_const, char *buffer)
+{
+    printf("CHECKPOINT VERIFY\n");
+    printf("Checkpoint: verify_input(). user_input{%s}. global{%s}. buffer{%s}\n", user_input, global_const, buffer);
+    scramble(user_input, buffer);
+    // memcmp() compares first n bytes of memory areas s1 and s2
     return memcmp(global_const, &buffer, 0x20);
 }
 
 int main()
 {
+    // This portion is used to determine hash_func's shuffled indices
+    /************
+    printf("{\n");
+    for (int i = 0; i < 0x20; i++)
+    {
+        unsigned long temp;
+        temp = hash_func(i);
+        printf("%d: %lu,\n", i, temp);
+    }
+    printf("}\n");
+    return 0;    
+    ************/
+
     int __status;
 
     // In Ghidra, the buffer starts/ends at these addresses:
@@ -69,15 +126,21 @@ int main()
     {
         printf("Checkpoint: in `if` statement..\n");
         char code[] = "89349536319392163324855876422573";
-        char buffer2[0x0060111b - 0x006010fa + 1];
-        int verified = verify_input(&buffer, code, &buffer2);
-        if (result == 0)
-        {
-            printf("! + ");
-            // target_func(&buffer);
-            // __status = 0;
-            // goto LAB_004005c8;
-        }
+        printf("Checkpoint: in `if` statement2..\n");
+        int buffer2_size = 0x0060111b - 0x006010fa + 1;
+        printf("Buffer2 size: %d\n", buffer2_size);
+        char buffer2[buffer2_size];
+        memset(&buffer2, 0, buffer2_size);
+        printf("Checkpoint: in `if` statement3..\n");
+        int verified = verify_input(&buffer, &code, &buffer2);
+        printf("Checkpoint: in `if` statement4..\n");
+        // if (result == 0)
+        // {
+        //     printf("! + ");
+        // target_func(&buffer);
+        // __status = 0;
+        // goto LAB_004005c8;
+        // }
     }
     //   printf(&exclamation_minus);
     //   __status = 1;
