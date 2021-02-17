@@ -50,9 +50,17 @@ LAB_004005c8:
 }
 ```
 
+Attempt to recreate the `verify_input` function for further testing.
 
+## Try String "89349536319392163324855876422573" (Fail #1)
+Unlike level 1, the comparison string is not the answer:
+```
+$ ./x2
+? 89349536319392163324855876422573     
+! -
+```
 
-## Jump To `target_func` (Failed Attempt #1)
+## Jump To `target_func` (Fail #2)
 Is it possible to just *jump* to the target function? Run the program in **gdb**.
 
 ```
