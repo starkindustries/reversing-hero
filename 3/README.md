@@ -44,7 +44,7 @@ LAB_00400515:
 }
 ```
 
-Focus in on the `verify_input` function. Rename variables and refactor to make it more readable:
+Focus in on the `verify_input` function (source: [verify_input.c](verify_input.c)). Rename variables and refactor to make it more readable:
 ```c
 long verify_input(int a, int b, int c)
 {
@@ -153,4 +153,67 @@ Final values are:
 a = -8
 b = -3
 c = 13
+```
+
+## `read_input()`
+
+Looking at the `read_input` function (source: [read_input.c](read_input.c)), it hints that it is expecting hex input.
+
+For example the function will exit if the counter is greater than 16, therefore limiting user input to 16 hex characters, which is 64 bits, which is the size of a long variable:
+```c
+counter = counter + 1;
+if (counter > 0x10) // 0x10 = 16 decimal
+{
+    goto LAB_00400722; // exit
+}
+```
+
+The function also checks if the character is less than "9" ASCII:
+```c
+temp = char_input - 0x30;  // 0x30 = "0" ASCII
+// By subtracting "0" ASCII, temp is converted from ASCII to decimal
+// For example, "9" ASCII (0x39) - 0x30 = 9 decimal
+// Then it checks if the value is greater than 9
+if (temp > 9)
+{
+    ...
+}
+```
+
+If the `temp` value above is greater than 9, then the function checks if the value is at least less than the value "f" in ASCII:
+```c
+// 0x61 is "a" in ASCII
+// 0x61 + 5 is "f" in ASCII
+// if the char is greater than "f" then it exits
+if (char_input - 0x61 > 5)
+{
+    goto LAB_00400722; // exit
+}
+```
+
+## Convert from Decimal to Hex
+
+Convert `a`, `b`, and `c` to their 64 bit hex equivalents:
+```
+a = -8 = 0xFFFFFFFFFFFFFFF8
+b = -3 = 0xFFFFFFFFFFFFFFFD
+c = 13 = 0xD
+```
+
+Plug these values in and grab the flag:
+```
+$ ./x3
+? FFFFFFFFFFFFFFF8
+? FFFFFFFFFFFFFFFD
+? D
+! + 8DE14EA92C145855AE74426319C1ABD74DFAC053027ED65E1136788E6076447F
+```
+
+Verify that the flag is correct:
+```
+$ ./p3 
+> 8DE14EA92C145855AE74426319C1ABD74DFAC053027ED65E1136788E6076447F
+@ 4/p4
+@ 4/x4
+] +
 ```

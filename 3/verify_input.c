@@ -1,5 +1,8 @@
 #include <stdio.h>
 
+
+// To compile
+// gcc verify_input.c -o verify_input.o
 long verify_input(int a, int b, int c)
 {
     long result;
