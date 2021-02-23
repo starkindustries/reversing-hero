@@ -88,7 +88,7 @@ The file name is `d.d`. Create a file with this name. Run it again. Now the prog
 0x400251 <_start+73>:	movabs rdx,0x123456701234567    ; store 0x123456701234567 into rdx
 0x40025b <_start+83>:	mov    rcx,0x80                 ; store 0x80 into rcx
 0x400262 <_start+90>:	movabs r8,0x601038              ; store 32-bit buffer address into r8
-0x40026c <_start+100>:	call   0x4003e4 <_start+476>    ; call function
+0x40026c <_start+100>:	call   0x4003e4 <_start+476>    ; call the verify function
 ```
 
 Examine the function at 0x4003e4:
@@ -238,4 +238,35 @@ Continuing back to function:
 0x400459 <_start+593>:	mov    rcx,0x20
 0x400460 <_start+600>:	rep stos BYTE PTR es:[rdi],al
 0x400462 <_start+602>:	ret 
+```
+
+## _start Function
+```c
+undefined  [16] _start(void)
+{
+  long lVar1;
+  long lVar2;
+  
+  syscall();
+  clear_buffer(&G_BUFFER32);
+  lVar1 = verify(2,0xdeadfacedeadbeef,0x123456701234567,0x80,(ulong *)&G_BUFFER32);
+  lVar2 = 2;
+  if (lVar1 == 0) {
+    lVar2 = 0;
+                    /* print ReversingHero string */
+    syscall();
+    target_func((long)&G_BUFFER32,0x20);
+    syscall();
+  }
+  syscall();
+  if (lVar2 == 1) {
+    syscall();
+  }
+  if (lVar2 == 2) {
+    syscall();
+  }
+  syscall();
+  syscall();
+  return CONCAT88(1,0xffffffffffffffff);
+}
 ```
