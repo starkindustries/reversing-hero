@@ -91,4 +91,151 @@ The file name is `d.d`. Create a file with this name. Run it again. Now the prog
 0x40026c <_start+100>:	call   0x4003e4 <_start+476>    ; call function
 ```
 
+Examine the function at 0x4003e4:
+```
+(gdb) x/50i  0x4003e4
+0x4003e4 <_start+476>:	push   r12                      ; push r12-r15 and rbp onto the stack
+0x4003e6 <_start+478>:	push   r13
+0x4003e8 <_start+480>:	push   r14
+0x4003ea <_start+482>:	push   r15
+0x4003ec <_start+484>:	push   rbp
+0x4003ed <_start+485>:	sub    rsp,0x10                 ; Make space on the stack to store params
+0x4003f1 <_start+489>:	mov    QWORD PTR [rsp],rsi      ; move rsi (0xdeadfacedeadbeef) onto the stack
+0x4003f5 <_start+493>:	mov    DWORD PTR [rsp+0x8],0x40 ; move 0x40 onto the stack
+```
 
+After this instruction examine the current stack:
+```
+=> 0x4003fd <_start+501>:	mov    r12,rdi      ; current instruction
+; current stack:
+0x7fffffffe000:	0xdeadbeef	0xdeadface	0x00000040	0x00000000
+0x7fffffffe010:	0x00000000	0x00000000	0x00000000	0x00000000
+```
+
+Continue analyzing the function:
+```
+0x4003fd <_start+501>:	mov    r12,rdi                  ; rdi contains the rax value from _start+60 and _start+42
+0x400400 <_start+504>:	mov    r13,rdx                  ; rdx contains 0x123456701234567 from _start+73
+0x400403 <_start+507>:	mov    r14,rcx                  ; rcx contains 0x80 from _start+83
+0x400406 <_start+510>:	mov    r15,r8                   ; r8 contains the 32-bit buffer from _start+90
+0x400409 <_start+513>:	mov    rdi,r12                  ; move r12 back into rdi again? why?
+0x40040c <_start+516>:	call   0x40033e <_start+310>    ; call another function
+```
+
+Another function:
+```
+(gdb) x/10i $rip
+0x40033e <_start+310>:	push   rax
+0x40033f <_start+311>:	mov    rax,0x0                  ; request syscall 0: read
+0x400346 <_start+318>:	mov    rsi,rsp                  ; buffer
+0x400349 <_start+321>:	mov    rdx,0x1                  ; size to read: 0x1 (one 64-bit chunk)
+0x400350 <_start+328>:	syscall                         ; execute syscall
+0x400352 <_start+330>:	xor    rdi,rdi                  ; clear rdi register (set to 0)
+0x400355 <_start+333>:	cmp    rax,0x1                  ; check if rax is 1
+0x400359 <_start+337>:	je     0x40035f <_start+343>    ; jmp if rax == 1
+0x40035b <_start+339>:	or     rdi,0xffffffffffffffff   ; if not, set rdi to -1
+0x40035f <_start+343>:	pop    rax                      ; pop top of stack into rax (the byte read)
+0x400360 <_start+344>:	movzx  rax,al
+0x400364 <_start+348>:	or     rax,rdi                  ; if rdi was -1 then rax would be corrupted
+0x400367 <_start+351>:	ret    
+```
+
+Note that the `read` syscall above uses register `rdi` as the file descriptor param (https://filippo.io/linux-syscall-table/). The `rdi` register was already previously set before the function call to the `rax` value of 0x3.
+
+https://unix.stackexchange.com/a/41422/387369
+```
+There are three standard file descriptions, STDIN, STDOUT, and STDERR. They are assigned to 0, 1, and 2 respectively.
+```
+
+3 would be the next available file descriptor for the `d.d` file. The program reads in the first character of the file.
+
+Now we're back to the previous function:
+
+```
+0x400411 <_start+521>:	mov    rbp,rax                  ; store rax (the char) into rbp
+0x400414 <_start+524>:	or     rax,0xffffffffffffffff   ; set rax to -1
+0x400418 <_start+528>:	cmp    rbp,rax                  ; check if the char == -1
+0x40041b <_start+531>:	je     0x400449 <_start+577>    ; if -1, jump to end
+0x40041d <_start+533>:	mov    rdi,r15                  ; move 32-bit buffer into rdi
+0x400420 <_start+536>:	mov    rsi,rbp                  ; move the char into rsi
+0x400423 <_start+539>:	call   0x4004f0 <_start+744>    ; call function
+```
+
+`scramble` function 0x4004f0
+```
+(gdb) x/50i $rip
+0x4004f0 <_start+744>:	mov    r8,QWORD PTR [rdi]       ; rdi has the 32-bit buffer
+0x4004f3 <_start+747>:	mov    r9,QWORD PTR [rdi+0x8]   
+0x4004f7 <_start+751>:	mov    r10,QWORD PTR [rdi+0x10]
+0x4004fb <_start+755>:	mov    r11,QWORD PTR [rdi+0x18]
+0x4004ff <_start+759>:	mov    rcx,0x100                ; 0x100 = 256
+0x400506 <_start+766>:	movzx  rsi,sil                  ; sil is rsi's lower portion
+0x40050a <_start+770>:	movabs rax,0xb010c150e26d857b
+0x400514 <_start+780>:	xor    r8,rax
+0x400517 <_start+783>:	add    r8,rsi                   ; rsi still contains the char
+0x40051a <_start+786>:	bswap  r8                       ; byte swap
+```
+
+Byte Swap reverses the order of the bytes:
+https://c9x.me/x86/html/file_module_x86_id_21.html
+```
+r8      0x b0 10 c1 50 e2 6d 85 e3                      ; before byte swap
+            .-----------|--|--|--'
+            |  .--------|--|--'
+            |  |  .-----|--'
+            |  |  |  .--'
+            v  v  v  v
+r8      0x e3 85 6d e2 50 c1 10 b0                      ; after byte swap
+```
+
+Continuing back to function:
+```
+0x40051d <_start+789>:	rol    r8,0x7                   ; rol = rotate left
+0x400521 <_start+793>:	movabs rax,0x4526e76d6d799032
+0x40052b <_start+803>:	xor    r9,rax
+0x40052e <_start+806>:	add    r9,r8
+0x400531 <_start+809>:	bswap  r9
+0x400534 <_start+812>:	rol    r9,0x17
+0x400538 <_start+816>:	movabs rax,0xa27c2069adb0e0c3
+0x400542 <_start+826>:	xor    r10,rax
+0x400545 <_start+829>:	add    r10,r9
+0x400548 <_start+832>:	bswap  r10
+0x40054b <_start+835>:	rol    r10,0x29
+0x40054f <_start+839>:	movabs rax,0xf0d6ea65fdb172b6
+0x400559 <_start+849>:	xor    r11,rax
+0x40055c <_start+852>:	add    r11,r10
+0x40055f <_start+855>:	bswap  r11
+0x400562 <_start+858>:	rol    r11,0x2f
+0x400566 <_start+862>:	mov    rsi,r11
+0x400569 <_start+865>:	loop   0x40050a <_start+770>
+0x40056b <_start+867>:	add    QWORD PTR [rdi],r8
+0x40056e <_start+870>:	add    QWORD PTR [rdi+0x8],r9
+0x400572 <_start+874>:	add    QWORD PTR [rdi+0x10],r10
+0x400576 <_start+878>:	add    QWORD PTR [rdi+0x18],r11
+0x40057a <_start+882>:	ret
+```
+
+```
+0x400428 <_start+544>:	mov    rdi,rsp
+0x40042b <_start+547>:	mov    rsi,rbp
+0x40042e <_start+550>:	call   0x400368 <_start+352>
+0x400433 <_start+555>:	test   rax,rax
+0x400436 <_start+558>:	jne    0x400449 <_start+577>
+0x400438 <_start+560>:	xor    eax,eax
+0x40043a <_start+562>:	cmp    QWORD PTR [rsp],r13
+0x40043e <_start+566>:	je     0x400449 <_start+577>
+0x400440 <_start+568>:	dec    r14
+0x400443 <_start+571>:	jne    0x400409 <_start+513>
+0x400445 <_start+573>:	or     rax,0xffffffffffffffff
+0x400449 <_start+577>:	add    rsp,0x10
+0x40044d <_start+581>:	pop    rbp
+0x40044e <_start+582>:	pop    r15
+0x400450 <_start+584>:	pop    r14
+0x400452 <_start+586>:	pop    r13
+0x400454 <_start+588>:	pop    r12
+0x400456 <_start+590>:	ret    
+0x400457 <_start+591>:	xor    eax,eax
+0x400459 <_start+593>:	mov    rcx,0x20
+0x400460 <_start+600>:	rep stos BYTE PTR es:[rdi],al
+0x400462 <_start+602>:	ret 
+```
