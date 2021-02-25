@@ -270,3 +270,13 @@ undefined  [16] _start(void)
   return CONCAT88(1,0xffffffffffffffff);
 }
 ```
+
+To set a string in memory with gdb:
+```
+(gdb) x/s $rdi
+0x601038:	""
+
+(gdb) set {char[32]} $rdi = "hello_world"
+(gdb) x/s $rdi
+0x601038:	"hello_world"
+```
