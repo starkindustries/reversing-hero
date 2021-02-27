@@ -66,53 +66,61 @@ void scramble(char *buffer, ulong char1)
     return;
 }
 
-ulong unknown_func(ulong *deadbeef, ulong char1)
+ulong unknown_func(ulong *deadbeef, ulong char1, int *counter)
 {
     char bVar1;
-    ulong uVar2;
     char bVar3;
     int iVar4;
 
-    if (char1 == 0x30)
+    if (char1 == 0x30 && *counter != 0)
     {
-        if (*(int *)(deadbeef + 1) != 0)
-        {
-            bVar3 = (char)*(int *)(deadbeef + 1);
-            bVar1 = bVar3 & 0x3f;
-            uVar2 = (*deadbeef << bVar1 | *deadbeef >> 0x40 - bVar1) &
-                    0xfffffffffffffffe;
-            bVar3 = bVar3 & 0x3f;
-            *deadbeef = uVar2 >> bVar3 | uVar2 << 0x40 - bVar3;
-            *(int *)(deadbeef + 1) = *(int *)(deadbeef + 1) + -1;
-            return 0;
-        }
-    }
-    else if (char1 == 0x31)
-    {
-        if (*(uint *)(deadbeef + 1) < 0x40)
-        {
-            iVar4 = *(uint *)(deadbeef + 1) + 1;
-            bVar3 = (char)iVar4;
-            bVar1 = bVar3 & 0x3f;
-            uVar2 = (*deadbeef << bVar1 | *deadbeef >> 0x40 - bVar1) &
-                    0xfffffffffffffffe;
-            bVar3 = bVar3 & 0x3f;
-            *deadbeef = uVar2 >> bVar3 | uVar2 << 0x40 - bVar3;
-            *(int *)(deadbeef + 1) = iVar4;
-            return 0;
-        }
-    }
-    else if ((char1 == 0x32) && (*(uint *)(deadbeef + 1) < 0x40))
-    {
-        iVar4 = *(uint *)(deadbeef + 1) + 1;
-        bVar3 = (char)iVar4;
+
+        bVar3 = (char)*counter;
         bVar1 = bVar3 & 0x3f;
-        uVar2 = (*deadbeef << bVar1 | *deadbeef >> 0x40 - bVar1) &
-                    0xfffffffffffffffe |
-                1;
+
+        *deadbeef = (*deadbeef << bVar1 | *deadbeef >> 0x40 - bVar1);   // 0x400383 <_start+379>   rol    rax,cl
+        
+        // Shift right then left by 1 just clears the last bit
+        // `rax & 0xfffffffffffffffe` does the same thing
+        *deadbeef = *deadbeef & 0xfffffffffffffffe;                     // 0x400386 <_start+382>   shr    rax,1
+                                                                        // 0x400389 <_start+385>   shl    rax,1
         bVar3 = bVar3 & 0x3f;
-        *deadbeef = uVar2 >> bVar3 | uVar2 << 0x40 - bVar3;
-        *(int *)(deadbeef + 1) = iVar4;
+        *deadbeef = *deadbeef >> bVar3 | *deadbeef << 0x40 - bVar3;     // 0x40038c <_start+388>   ror    rax,cl
+        *counter -= 1;                                                  // 0x400392 <_start+394>   dec    DWORD PTR [rdi+0x8]
+        return 0;
+    }
+    else if (char1 == 0x31 && *counter < 0x40)
+    {
+        *counter += 1;
+        bVar3 = (char)*counter;
+        bVar1 = bVar3 & 0x3f;
+        
+        // Rotate left
+        *deadbeef = (*deadbeef << bVar1 | *deadbeef >> 0x40 - bVar1);
+
+        // Clear last bit 
+        *deadbeef = *deadbeef & 0xfffffffffffffffe;
+        
+        bVar3 = bVar3 & 0x3f;
+
+        // Rotate right
+        *deadbeef = *deadbeef >> bVar3 | *deadbeef << 0x40 - bVar3;
+        return 0;
+    }
+    else if (char1 == 0x32 && *counter < 0x40)
+    {
+        *counter += 1;
+        bVar3 = (char)*counter;
+        bVar1 = bVar3 & 0x3f;
+        *deadbeef = (*deadbeef << bVar1 | *deadbeef >> 0x40 - bVar1);
+        
+        // Clears the last bit then sets it to 1
+        *deadbeef = *deadbeef & 0xfffffffffffffffe | 1;
+        
+        bVar3 = bVar3 & 0x3f;
+
+        // Rotate back left
+        *deadbeef = *deadbeef >> bVar3 | *deadbeef << 0x40 - bVar3;
         return 0;
     }
 
@@ -125,8 +133,8 @@ ulong verify(ulong file_descriptor, char *buffer)
     ulong result;
     ulong rax;
 
-    ulong local_30 = 0x40;
     ulong counter = 0x80;
+    int counter2 = 0x40;
     ulong deadbeef = 0xdeadfacedeadbeef;
 
     do
@@ -146,7 +154,7 @@ ulong verify(ulong file_descriptor, char *buffer)
         scramble(buffer, char1);
         printf("buffer after scramble:  {%s}\n", buffer);
 
-        result = unknown_func(&deadbeef, char1);
+        result = unknown_func(&deadbeef, char1, &counter2);
         if (result != 0)
         {
             printf("result is not zero: {%ld}\n", result);
@@ -207,6 +215,35 @@ void __start()
 
 int main()
 {
+    // gdb breakpoints:
+    // breakpoint *0x400208     <_start>        _start()
+    // breakpoint *0x4003e4     <_start+476>    verify()
+    // breakpoint *0x400368     <_start+352>    unknown_func()
+    // breakpoint *0x400433     <_start+555>    instruction right after unknown_func() completes
+    ulong deadbeef = 0xdeadfacedeadbeef;
+    ulong char1;
+    int counter = 0x40;
+
+    for (int i = 0; i < 0x41; i++)
+    {
+        char1 = 0x30;
+        printf("deadbeef: {0x%02lx}, char: {0x%02lx}, counter: {%d}\n", deadbeef, char1, counter);
+        ulong result = unknown_func(&deadbeef, char1, &counter);
+        printf("deadbeef: {0x%02lx}, char: {0x%02lx}, counter: {%d}, result: {%ld}\n\n", deadbeef, char1, counter, result);
+    }
+
+    deadbeef = 0xdeadfacedeadbeef;
+    counter = 0x0;
+    for (int i = 0; i < 0x41; i++)
+    {
+        char1 = 0x32;
+        printf("deadbeef: {0x%02lx}, char: {0x%02lx}, counter: {%d}\n", deadbeef, char1, counter);
+        ulong result = unknown_func(&deadbeef, char1, &counter);
+        printf("deadbeef: {0x%02lx}, char: {0x%02lx}, counter: {%d}, result: {%ld}\n\n", deadbeef, char1, counter, result);
+    }
+
+    return 0;
+
     printf("Starting program..\n");
     __start();
 }

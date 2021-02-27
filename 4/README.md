@@ -178,9 +178,7 @@ Now we're back to the previous function:
 
 Byte Swap reverses the order of the bytes:
 https://c9x.me/x86/html/file_module_x86_id_21.html
-```
-r8      0x b0 10 c1 50 e2 6d 85 e3                      ; before byte swap
-            .-----------|--|--|--'
+```0xdeadfacedeadbeef
             |  .--------|--|--'
             |  |  .-----|--'
             |  |  |  .--'
@@ -198,7 +196,7 @@ Continuing back to function:
 0x400534 <_start+812>:	rol    r9,0x17
 0x400538 <_start+816>:	movabs rax,0xa27c2069adb0e0c3
 0x400542 <_start+826>:	xor    r10,rax
-0x400545 <_start+829>:	add    r10,r9
+0x400545 <_start+829>:	add    r10,r90xdeadfacedeadbeef
 0x400548 <_start+832>:	bswap  r10
 0x40054b <_start+835>:	rol    r10,0x29
 0x40054f <_start+839>:	movabs rax,0xf0d6ea65fdb172b6
@@ -279,4 +277,127 @@ To set a string in memory with gdb:
 (gdb) set {char[32]} $rdi = "hello_world"
 (gdb) x/s $rdi
 0x601038:	"hello_world"
+```
+
+This local var is located at address `deadbeef + 1` or `$rdi + 0x8`. Need to investigate this closer. This is used inside the unknown_func. Look at asm instruction:
+```
+00400392 ff 4f 08        DEC        dword ptr [rdi + 0x8]
+```
+
+and in ghidra output:
+```
+ulong local_30 = 0x40;
+```
+
+
+location at $rdi+0x8 contains the 0x40 variable. note: still inside the unknown_func(). the 0x40 var is another input to this function.
+```
+=> 0x40037a <_start+370>:       mov    ecx,DWORD PTR [rdi+0x8]
+0x7fffffffe058: 0x00400433      0x00000000      0xdeadbeef      0xdeadface
+0x7fffffffe068: 0x00000040      0x00000000      0x00000000      0x00000000
+0x7fffffffe078: 0x00000000      0x00000000      0x00000000      0x00000000
+0x7fffffffe088: 0x00000001      0x00000000      0x00000003      0x00000000
+0x000000000040037a in _start ()
+(gdb) i r rdi
+rdi            0x7fffffffe060      140737488347232
+(gdb) x $rdi+0x8
+0x7fffffffe068: 0x00000040
+(gdb) x/10wx $rsp
+0x7fffffffe058: 0x00400433      0x00000000      0xdeadbeef      0xdeadface
+0x7fffffffe068: 0x00000040      0x00000000      0x00000000      0x00000000
+0x7fffffffe078: 0x00000000      0x00000000
+```
+
+the rotate left/right rotates by the amount in the counter variable. 
+
+The shift right and shift left will clear the last bit in rax:
+```
+(gdb) i r rax
+rax            0xdeadfacedeadbeef  -2400987259912470801
+(gdb) si
+=> 0x400389 <_start+385>:       shl    rax,1
+0x7fffffffe058: 0x00400433      0x00000000      0xdeadbeef      0xdeadface
+0x7fffffffe068: 0x00000040      0x00000000      0x00000000      0x00000000
+0x7fffffffe078: 0x00000000      0x00000000      0x00000000      0x00000000
+0x7fffffffe088: 0x00000001      0x00000000      0x00000003      0x00000000
+0x0000000000400389 in _start ()
+(gdb) i r rax
+rax            0x6f56fd676f56df77  8022878406898540407
+(gdb) si
+=> 0x40038c <_start+388>:       ror    rax,cl
+0x7fffffffe058: 0x00400433      0x00000000      0xdeadbeef      0xdeadface
+0x7fffffffe068: 0x00000040      0x00000000      0x00000000      0x00000000
+0x7fffffffe078: 0x00000000      0x00000000      0x00000000      0x00000000
+0x7fffffffe088: 0x00000001      0x00000000      0x00000003      0x00000000
+0x000000000040038c in _start ()
+(gdb) i r rax
+rax            0xdeadfacedeadbeee  -2400987259912470802
+```
+
+
+Traps I fell into.. Trusting ghidra source too much. Not considering additional variables outside of the given ghidra source: for example the counter 0x40 for the unknown_func()
+
+Running the unknown func up to 64 times clears the buffer. This was run using x4_source:
+```
+for (int i = 0; i < 100; i++)
+{
+    char1 = 0x30;
+    printf("deadbeef: {0x%02lx}, char: {0x%02lx}, counter: {%d}\n", deadbeef, char1, counter);
+    ulong result = unknown_func(&deadbeef, char1, &counter);
+    printf("deadbeef: {0x%02lx}, char: {0x%02lx}, counter: {%d}, result: {%ld}\n\n", deadbeef, char1, counter, result);
+}
+```
+
+Try running this on the actual program:
+```
+$ python
+...
+>>> "0"*64
+'0000000000000000000000000000000000000000000000000000000000000000'
+```
+
+Theory seems to be correct:
+```
+Breakpoint 2, 0x0000000000400368 in _start ()
+Continuing.
+=> 0x400433 <_start+555>:       test   rax,rax
+0x7fffffffe060: 0xde000000      0xdeadface          <== stack (deadbeef value)
+
+Breakpoint 4, 0x0000000000400433 in _start ()
+(gdb) i r ecx
+ecx            0x29                41               <== counter value
+```
+
+```
+0x30 (0) clears the bit at counter index and then decrements counter
+0x31 (1) clears the bit at counter index and then increments counter
+0x31 (2) sets the bit at counter index and then increments counter
+
+Desired target is:
+0x123456701234567
+
+Convert that number to 64-bit binary:
+0000000100100011010001010110011100000001001000110100010101100111
+
+Then the desired commands should create this binary number. 
+First clear the long with 64x 0's. 
+Then set or clear the next 64 items based on the desired target.
+
+Python to do this:
+>>> target = "0000000100100011010001010110011100000001001000110100010101100111"
+>>> target = target.replace('1', '2').replace('0', '1')
+'1111111211211122121112121221122211111112112111221211121212211222'
+>>> 64 * "0" + target
+00000000000000000000000000000000000000000000000000000000000000001111111211211122121112121221122211111112112111221211121212211222
+```
+
+Bingo:
+```
+$ ./x4
+! + 14EDAB4DB6967DC9B0E4194648C5AE8829E9AB95D165E698509809B6D2A44C17
+$ ./p4
+> 14EDAB4DB6967DC9B0E4194648C5AE8829E9AB95D165E698509809B6D2A44C17
+@ 5/p5
+@ 5/x5
+] +
 ```
