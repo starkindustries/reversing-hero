@@ -242,8 +242,6 @@ int main()
         printf("deadbeef: {0x%02lx}, char: {0x%02lx}, counter: {%d}, result: {%ld}\n\n", deadbeef, char1, counter, result);
     }
 
-    return 0;
-
     printf("Starting program..\n");
     __start();
 }
