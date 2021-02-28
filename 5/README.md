@@ -77,6 +77,7 @@ Breakpoint references:
 ```
 0x4004da    func1()
 0x400340    target_func_param_func()
+0x40037f    swap()
 ```
 
 ```c
@@ -138,4 +139,49 @@ side note:
 0xC1CADA3301
 ```
 
-## `target_func_param_func()`
+## `sort()`
+
+Sort is broken. Need to change for JA to JAE.
+
+Change this:
+```
+0x400359:	ja     0x400368
+``` 
+
+To this:
+```
+0x400359:	jae    0x400368
+```
+
+Intel docs reference:
+```
+77 cb JA rel8 D Valid Valid Jump short if above (CF=0 and ZF=0).
+73 cb JAE rel8 D Valid Valid Jump short if above or equal (CF=0)
+```
+
+Change 77 to 73
+
+Change it in vim:
+```
+$ cp x5 x5_mod
+$ vim x5_mod
+:%!xxd                  ; view binary in xxd format
+/77 0d                  ; search. enter pattern then press ENTER
+n                       ; tap `n` to go to next until pattern found
+                        ; ounce found, replace 77 to 73
+:%!xxd -r               ; convert from xxd format back to binary
+:x                      ; save and quit
+```
+
+Run the mod:
+```
+$ ./x5_mod 
+! + 953B1AE1CC8106E23669D6EF5D92A9288D7ACC6C71F02507478C30B2C5883AB0
+
+$ ./p5
+> 953B1AE1CC8106E23669D6EF5D92A9288D7ACC6C71F02507478C30B2C5883AB0
+@ 6/p6
+@ 6/x6
+] +
+```
+

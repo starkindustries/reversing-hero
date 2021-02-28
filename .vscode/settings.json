@@ -1,6 +1,22 @@
 {
     "files.associations": {
-        "functional": "c"
+        "functional": "c",
+        "array": "c",
+        "*.tcc": "c",
+        "deque": "c",
+        "string": "c",
+        "unordered_map": "c",
+        "vector": "c",
+        "memory": "c",
+        "optional": "c",
+        "string_view": "c",
+        "fstream": "c",
+        "istream": "c",
+        "ostream": "c",
+        "sstream": "c",
+        "streambuf": "c",
+        "tuple": "c",
+        "type_traits": "c"
     },
     "cSpell.ignoreWords": [
         "umode"
