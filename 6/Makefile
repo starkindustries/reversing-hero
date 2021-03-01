@@ -1,11 +1,18 @@
 all: build run
 
-filename = x6_source
+main = x6_source
 
-flags = -g # used for gdb
+# Flags:
+# -g		for GDB
+# -Wall		show all warnings
+flags = -g -Wall
 
-build: $(filename).c
-	gcc $(flags) $(filename).c -o $(filename).o
+sources = ../utils/helper.c
+
+includes = -I../utils
+
+build: $(main).c
+	gcc $(flags) $(main).c $(sources) $(includes) -o $(main).o
 	# *********************
 	# Build Successful
 	# *********************
@@ -14,7 +21,7 @@ run:
 	# *********************
 	# Running Program
 	# *********************
-	./$(filename).o
+	./$(main).o
 	# *********************
 	# Run Completed
 	# *********************

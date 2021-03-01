@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <assert.h>
+#include "helper.h"
 
 typedef unsigned long ulong;
 
@@ -46,7 +48,31 @@ long target_return_zero2(long all_ones_buffer, ulong counter, char user_input)
     return return_value;
 }
 
+long verify_only_alphabetical(char *user_input)
+{
+    char my_char;
+    do
+    {
+        my_char = *user_input;
+        debug("verify, my_char{%c}\n", my_char);
+        if (my_char == '\0')
+        {
+            return 0;
+        }
+        user_input = user_input + 1;
+        debug("verify, my_char-0x61:{0x%02x}\n", (unsigned char)(my_char-0x61));
+    } while ((unsigned char)(my_char - 0x61) <= (unsigned char)0x19);
+    return -1;
+}
+
 int main()
 {
+    assert ((unsigned char)0xff > (unsigned char)0x60);
+    debug("HELLO_DEBUGGER!!\n");    
+
     printf("hello_world\n");
+
+    char buffer[] = "_abcdefghijklmnopqrstuvwxyz";
+    long result = verify_only_alphabetical(buffer);
+    printf("verify_only_alphabetical: %ld\n", result);
 }
