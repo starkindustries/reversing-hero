@@ -1,3 +1,4 @@
+# Level 5
 
 Open in Ghidra. Break at the `_start()` function.
 
@@ -185,3 +186,5 @@ $ ./p5
 ] +
 ```
 
+https://www.youtube.com/watch?v=LyNyf3UM9Yc&ab_channel=LiveOverflow
+https://github.com/NationalSecurityAgency/ghidra/issues/19

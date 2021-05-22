@@ -1,25 +1,84 @@
+# Level 6
 
-https://www.youtube.com/watch?v=LyNyf3UM9Yc&ab_channel=LiveOverflow
+## _start()
 
-https://github.com/NationalSecurityAgency/ghidra/issues/19
+Examine the `_start()` function in Ghidra:
 
-Level 6 contains a bunch of functions:
+```c
+void _start(void)
+{
+    // prompt
+    printf(&s_?);
+    file_descriptor = fdopen(0, &s_r);
+    // read user input
+    result = get_user_input(&buffer_32, 0x21, file_descriptor);
+    if (result != (char *)0x0)
+    {
+        // need to RE this function
+        lVar1 = important_func(&buffer, 0x1a, &buffer_32);
+        if (lVar1 == 0)
+        {
+            // clear buffer
+            memset(&DAT_006010d1, 0, 0x20);
+            // Goal to get here
+            printf(&s_ !_ +);
+            sVar2 = strlen(&buffer_32);
+            target_func1((ulong *)&DAT_006010d1, &buffer_32, sVar2);
+            target_func2(&DAT_006010d1);
+            __status = 0;
+            goto LAB_004005aa;
+        }
+    }
+    printf(&DAT_00601062);
+    __status = 1;
+LAB_004005aa:
+    fclose(file_descriptor);
+    exit(__status);
+}
 ```
-0x4004b0    _start()
-0x4005be    important_func()
-0x400650    target_return_zero()
-0x40068c    target_return_zero2()
-0x4006ae    target_0xff()
-0x400615    verify_only_alphabetical()
-0x400632    set_buffer_to_all_ones()
+
+The goal is to get `important_func()` to return zero so that the program can enter the `if` statement and run the target functions.
+
+## important_func()
+
+```c
+// param_0x1a passed hardcoded value 0x1a:
+// 0x40050e <_start+94>:	mov    rsi,0x1a
+long important_func(char *buffer, ulong param_0x1a, byte *user_input)
+{
+    long result;
+    ulong uVar1;
+    // see verify_only_alphabetical() section
+    result = verify_only_alphabetical((char *)user_input);
+    if (result == 0)
+    {
+        // see set_buffer_to_all_ones() section
+        set_buffer_to_all_ones(buffer, param_0x1a);
+        // see add_input_to_binary_tree() section
+        result = add_input_to_binary_tree(buffer, param_0x1a, user_input);
+        if ((result == 0) &&
+            // see verify_buffer_does_not_contain_0xff() section
+            (uVar1 = verify_buffer_does_not_contain_0xff(buffer, param_0x1a), 
+            uVar1 == 0))
+        {
+            return 0;
+        }
+    }
+    return -1;
+}
 ```
 
-All of the above functions are embedded in another like Russian
-[Matryoshka dolls](https://en.wikipedia.org/wiki/Matryoshka_doll). Function `_start()` calls `important_func()`, which calls calls `target_return_zero()`, which calls `target_return_zero2()`, which calls `target_0xff()`.
+`important_func` contains several key subfunctions:
+* `verify_only_alphabetical()`
+* `set_buffer_to_all_ones()`
+* `add_input_to_binary_tree()`
+* `verify_buffer_does_not_contain_0xff()`
 
-** TODO: come back to these functions **
+## verify_only_alphabetical()
 
-Start with `verify_only_alphabetical()` function. This function verifies that only lowercase alphabet characters are given in the user input. 
+This function verifies that only lowercase alphabet characters are given in the user input. 
+
+## set_buffer_to_all_ones()
 
 Now examine the `set_buffer_to_all_ones()`. GDB proves that this does as expected:
 ```
@@ -171,6 +230,7 @@ Therefore input `bac` produces:
 This function is filling a balanced binary tree with letters...
 
 Therefore, create a binary tree with the alphabet and print it out BFS (breadth first search) style:
+
 ```
 abcdefghijklm n opqrstuvwxyz
 
@@ -178,8 +238,10 @@ abc d ef [g] hijklm [[n]] opqrst [u] vwxyz
 
 nodes:  1  3  7  15  31
 levels: 1  2  3   4   5
+```
 
 The alphabet w/ 26 chars will have 5 levels
+
 ```     
                    p
          h                    w
@@ -187,9 +249,11 @@ The alphabet w/ 26 chars will have 5 levels
  b    f     j    n    r    v    x   z
 a c  e  g  i k  m o  q s  u
 ```
+
 This tree is balanced and has all nodes filled from left to right
 
 input `phwdltybfjnrvxzacegikmoqsu`:
+
 ```
 0x6010f1:	0x70	0x68	0x77	0x64	0x6c	0x74	0x79	0x62
 0x6010f9:	0x66	0x6a	0x6e	0x72	0x76	0x78	0x7a	0x61
@@ -202,6 +266,7 @@ Continuing.
 ```
 
 Plug in:
+
 ```
 $ ./p6 
 > 2EE60F74548732808B5FD71EBAA989BA73BF5FB17E55CB436BB80573B7260437
